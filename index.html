@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CareFlow PX | Patient Experience</title>
+<style>
+:root{--blue:#2563eb;--navy:#1e293b;--bg:#f1f5f9;--border:#e2e8f0}
+*{box-sizing:border-box;font-family:Arial,sans-serif}
+body{margin:0;background:var(--bg);color:#334155}
+.app{display:flex;min-height:100vh}
+aside{width:230px;background:var(--navy);color:white;padding:20px 12px;flex-shrink:0}
+.brand{font-size:20px;font-weight:bold;padding:10px;margin-bottom:22px}
+nav button{display:block;width:100%;padding:13px 12px;margin:5px 0;text-align:left;border:0;border-radius:7px;background:transparent;color:#cbd5e1;cursor:pointer;font-size:14px}
+nav button:hover,nav button.active{background:var(--blue);color:white}
+main{flex:1;min-width:0}
+header{background:white;padding:18px 24px;display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid var(--border)}
+.content{padding:24px;max-width:1500px;margin:auto}
+.notice{background:#dbeafe;color:#1e40af;padding:12px;border-radius:8px;margin-bottom:18px;font-size:13px}
+h1{font-size:24px;margin:0 0 8px;color:#0f172a}
+h2{font-size:17px;color:#0f172a}
+p{line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
+.card{background:white;border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;min-width:0}
+.metric{font-size:28px;font-weight:bold;color:#0f172a;margin:10px 0}
+.muted{font-size:12px;color:#64748b}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+input,select,textarea{padding:10px;border:1px solid #cbd5e1;border-radius:6px;background:white;max-width:100%}
+input,select,textarea{font-size:14px}
+textarea{width:100%;min-height:75px}
+button.action{border:0;border-radius:6px;background:var(--blue);color:white;padding:10px 14px;cursor:pointer}
+button.secondary{background:white;color:#334155;border:1px solid #cbd5e1}
+button.danger{background:#dc2626}
+button:disabled{opacity:.6;cursor:default}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;background:white}
+th,td{text-align:left;padding:12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+th{color:#64748b;background:#f8fafc}
+.badge{display:inline-block;border-radius:20px;padding:5px 8px;background:#dbeafe;color:#1d4ed8;font-size:12px}
+.badge.good{background:#dcfce7;color:#166534}
+.badge.warn{background:#fef3c7;color:#92400e}
+.badge.bad{background:#fee2e2;color:#991b1b}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form-grid label{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.full{grid-column:1/-1}
+.bar{height:10px;background:#e2e8f0;border-radius:9px;overflow:hidden;flex:1}
+.bar span{display:block;height:100%;background:var(--blue)}
+.setting{display:flex;justify-content:space-between;gap:15px;padding:14px 0;border-bottom:1px solid var(--border)}
+footer{color:#64748b;font-size:12px;padding:10px 0}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.app{display:block}aside{width:100%}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.content{padding:14px}header{padding:14px;flex-wrap:wrap}}
+@media(max-width:480px){.grid,.form-grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+ <div class="brand">✚ CareFlow PX</div>
+ <nav id="nav">
+  <button class="active" data-page="Live Operations">◉ Live Operations</button>
+  <button data-page="Patient Directory">♙ Patient Directory</button>
+  <button data-page="Appointments">▦ Appointments</button>
+  <button data-page="Performance Metrics">▥ Performance Metrics</button>
+  <button data-page="Closed-Loop Feedback">✉ Closed-Loop Feedback</button>
+  <button data-page="System Settings">⚙ System Settings</button>
+ </nav>
+</aside>
+<main>
+<header>
+ <strong>Patient Experience Management</strong>
+ <span id="clock"></span>
+</header>
+<div class="content">
+<div class="notice">DEMO PROTOTYPE — Uses sample data and browser storage only. No real SMS or hospital connection.</div>
+<div id="page"></div>
+<footer>CareFlow PX · Educational demonstration · Do not enter real patient medical information.</footer>
+</div>
+</main>
+</div>
+<script>
+const KEY="careflow_px_demo_v1";
+const initial={
+ patients:[
+  {id:"P-90812",name:"Ramesh Kumar",dept:"Cardiology",wait:24,status:"Waiting",updated:false},
+  {id:"P-90815",name:"Sunita Mehta",dept:"Radiology",wait:5,status:"On Time",updated:false}
+ ],
+ appointments:[],feedback:[],
+ settings:{timer:true,notifications:true}
+};
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||structuredClone(initial)}
+catch(e){state=JSON.parse(JSON.stringify(initial))}
+let current="Live Operations";
+const $=id=>document.getElementById(id);
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(s){if(state.settings.notifications)alert(s)}
+function badge(s){
+ let c=/delay|urgent|high|poor/i.test(s)?"bad":/complete|resolved|informed|good|on time/i.test(s)?"good":/waiting|review|normal|scheduled/i.test(s)?"warn":"";
+ return `<span class="badge ${c}">${esc(s)}</span>`
+}
+function shell(title,desc=""){
+ return `<h1>${title}</h1>${desc?`<p class="muted">${desc}</p>`:""}`
+}
+function patientTable(rows){
+ return `<div class="table-wrap"><table><thead><tr><th>ID / Patient</th><th>Department</th><th>Wait</th><th>Status</th><th>Action</th></tr></thead><tbody>
+ ${rows.map(p=>`<tr><td>${esc(p.id)}<br><strong>${esc(p.name)}</strong></td><td>${esc(p.dept)}</td><td>${p.wait} min</td><td>${badge(p.status)}</td><td><button class="action" onclick="sendUpdate('${p.id}')">${p.updated?"Updated":"Send Update"}</button></td></tr>`).join("")||'<tr><td colspan="5">No patients found.</td></tr>'}
+ </tbody></table></div>`
+}
+function livePage(){
+ return shell("Live Operations","Manage the demonstration patient queue and simulated waiting updates.")+
+ `<div class="grid">
+ <div class="card"><div class="muted">Patients in queue</div><div class="metric">${state.patients.length}</div></div>
+ <div class="card"><div class="muted">Simulated updates</div><div class="metric">${state.patients.filter(p=>p.updated).length}</div></div>
+ <div class="card"><div class="muted">Average wait</div><div class="metric">${avgWait()} min</div></div>
+ <div class="card"><div class="muted">Feedback entries</div><div class="metric">${state.feedback.length}</div></div></div>
+ <section class="card"><h2>Patient Check-in</h2>
+ <form onsubmit="addPatient(event)" class="row">
+ <input id="pname" placeholder="Patient name" required>
+ <select id="pdept"><option>General Medicine</option><option>Cardiology</option><option>Radiology</option><option>Orthopaedics</option><option>Pediatrics</option><option>Other</option></select>
+ <button class="action">＋ Check-in</button></form>
+ <div class="row"><input id="liveSearch" placeholder="Search patient..." oninput="filterLive()"><button class="action secondary" onclick="exportCSV()">Export CSV</button></div>
+ <div id="liveTable">${patientTable(state.patients)}</div></section>
+ <section class="card"><h2>Service Improvement Loop</h2>
+ <p>1. Collect patient feedback</p><p>↓</p><p>2. Review recurring concerns</p><p>↓</p><p>3. Plan service improvements</p><p>↓</p><p>4. Review feedback again</p></section>`
+}
+function directoryPage(){
+ return shell("Patient Directory","Search and review demo patient records.")+
+ `<section class="card"><input id="dirSearch" placeholder="Search name, ID or department" oninput="filterDirectory()" style="width:100%;margin-bottom:14px"><div id="dirTable">${patientTable(state.patients)}</div></section>`
+}
+function appointmentsPage(){
+ return shell("Appointments","Create and manage sample appointments.")+
+ `<section class="card"><h2>New Appointment</h2><form class="form-grid" onsubmit="addAppointment(event)">
+ <label>Patient name<input id="aname" required></label>
+ <label>Department<select id="adept"><option>General Medicine</option><option>Cardiology</option><option>Radiology</option><option>Orthopaedics</option><option>Pediatrics</option></select></label>
+ <label>Date<input id="adate" type="date" required></label><label>Time<input id="atime" type="time" required></label>
+ <div class="full"><button class="action">Add Appointment</button></div></form></section>
+ <section class="card"><h2>Appointment List</h2>${state.appointments.length?`<div class="table-wrap"><table><tr><th>Patient</th><th>Department</th><th>Date/time</th><th>Status</th><th>Actions</th></tr>${state.appointments.map(a=>`<tr><td>${esc(a.name)}</td><td>${esc(a.dept)}</td><td>${esc(a.date)} ${esc(a.time)}</td><td>${badge(a.status)}</td><td><button class="action" onclick="toggleAppointment('${a.id}')">Toggle status</button> <button class="action danger" onclick="cancelAppointment('${a.id}')">Cancel</button></td></tr>`).join("")}</table></div>`:"No appointments yet."}</section>`
+}
+function metricsPage(){
+ const ratings=state.feedback.map(f=>f.rating);
+ const rating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):"—";
+ const count=state.patients.length;
+ const statuses=["On Time","Waiting","Delayed","Informed"];
+ return shell("Performance Metrics","Figures recalculate from this browser's demo records; they are not real hospital statistics.")+
+ `<div class="grid"><div class="card">Patients<div class="metric">${count}</div></div><div class="card">Average wait<div class="metric">${avgWait()} min</div></div><div class="card">Updates marked sent<div class="metric">${state.patients.filter(p=>p.updated).length}</div></div><div class="card">Average feedback rating<div class="metric">${rating}</div></div></div>
+ <section class="card"><h2>Queue Status</h2>${statuses.map(s=>{let n=state.patients.filter(p=>p.status===s).length;return `<div class="row"><span style="width:100px">${s}</span><div class="bar"><span style="width:${count?n/count*100:0}%"></span></div><strong>${n}</strong></div>`}).join("")}
+ <button class="action" onclick="exportCSV()">Export Queue CSV</button></section>`
+}
+function feedbackPage(){
+ return shell("Closed-Loop Feedback","Record feedback and track it through review. Use fictional details only.")+
+ `<section class="card"><h2>Submit Feedback</h2><form class="form-grid" onsubmit="addFeedback(event)">
+ <label>Respondent<select id="ftype"><option>Patient</option><option>Caregiver</option><option>Staff</option></select></label>
+ <label>Topic<select id="ftopic"><option>Waiting time</option><option>Registration guidance</option><option>Communication</option><option>Service awareness</option><option>Cleanliness</option><option>Other</option></select></label>
+ <label>Rating<select id="frating"><option value="5">5 - Very good</option><option value="4">4 - Good</option><option value="3">3 - Average</option><option value="2">2 - Needs improvement</option><option value="1">1 - Poor</option></select></label>
+ <label>Priority<select id="fpriority"><option>Normal</option><option>High</option><option>Urgent</option></select></label>
+ <label class="full">Feedback note<textarea id="fnote" maxlength="400" required placeholder="No personal or medical details"></textarea></label>
+ <div class="full"><button class="action">Save Feedback</button></div></form></section>
+ <section class="card"><h2>Feedback Tracker</h2>${state.feedback.length?`<div class="table-wrap"><table><tr><th>Topic</th><th>Respondent</th><th>Rating</th><th>Priority</th><th>Note</th><th>Status</th><th>Action</th></tr>${state.feedback.map(f=>`<tr><td>${esc(f.topic)}</td><td>${esc(f.type)}</td><td>${f.rating}/5</td><td>${badge(f.priority)}</td><td>${esc(f.note)}</td><td>${badge(f.status)}</td><td><button class="action" onclick="advanceFeedback('${f.id}')">${f.status==="New"?"Review":f.status==="In Review"?"Resolve":"Reopen"}</button></td></tr>`).join("")}</table></div>`:"No feedback submitted yet."}</section>`
+}
+function settingsPage(){
+ return shell("System Settings","Settings apply to this browser demo only.")+
+ `<section class="card">
+ <div class="setting"><span><strong>Automatic waiting timer</strong><br><small>Increase wait times during demo</small></span><input type="checkbox" ${state.settings.timer?"checked":""} onchange="setSetting('timer',this.checked)"></div>
+ <div class="setting"><span><strong>In-app notifications</strong><br><small>Show confirmation messages</small></span><input type="checkbox" ${state.settings.notifications?"checked":""} onchange="setSetting('notifications',this.checked)"></div>
+ <div class="row"><button class="action" onclick="save();toast('Settings saved')">Save Settings</button><button class="action danger" onclick="resetDemo()">Reset Demo Data</button></div></section>`
+}
+function avgWait(){return state.patients.length?Math.round(state.patients.reduce((s,p)=>s+p.wait,0)/state.patients.length):0}
+function render(){
+ $("page").innerHTML=({
+ "Live Operations":livePage,
+ "Patient Directory":directoryPage,
+ "Appointments":appointmentsPage,
+ "Performance Metrics":metricsPage,
+ "Closed-Loop Feedback":feedbackPage,
+ "System Settings":settingsPage
+ }[current])();
+ document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===current))
+}
+function go(page){current=page;render()}
+$("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-page]");if(b)go(b.dataset.page)});
+function addPatient(e){
+ e.preventDefault();const name=$("pname").value.trim();
+ const dept=$("pdept").value;if(!name)return;
+ state.patients.unshift({id:"P-"+Math.floor(10000+Math.random()*89999),name,dept,wait:0,status:"On Time",updated:false});
+ save();render();toast("Demo patient checked in.")
+}
+function sendUpdate(id){
+ const p=state.patients.find(x=>x.id===id);if(!p)return;
+ p.updated=true;p.status="Informed";save();render();toast("Simulated update marked as sent. No SMS was sent.")
+}
+function filterLive(){
+ const q=$("liveSearch").value.toLowerCase();
+ $("liveTable").innerHTML=patientTable(state.patients.filter(p=>(p.name+" "+p.id+" "+p.dept).toLowerCase().includes(q)))
+}
+function filterDirectory(){
+ const q=$("dirSearch").value.toLowerCase();
+ $("dirTable").innerHTML=patientTable(state.patients.filter(p=>(p.name+" "+p.id+" "+p.dept).toLowerCase().includes(q)))
+}
+function addAppointment(e){
+ e.preventDefault();state.appointments.push({id:Date.now()+"",name:$("aname").value.trim(),dept:$("adept").value,date:$("adate").value,time:$("atime").value,status:"Scheduled"});
+ save();render();toast("Demo appointment added.")
+}
+function toggleAppointment(id){
+ const a=state.appointments.find(x=>x.id===id);if(a)a.status=a.status==="Scheduled"?"Completed":"Scheduled";save();render()
+}
+function cancelAppointment(id){
+ state.appointments=state.appointments.filter(x=>x.id!==id);save();render();toast("Appointment removed.")
+}
+function addFeedback(e){
+ e.preventDefault();state.feedback.unshift({id:Date.now()+"",type:$("ftype").value,topic:$("ftopic").value,rating:Number($("frating").value),priority:$("fpriority").value,note:$("fnote").value.trim(),status:"New"});
+ save();render();toast("Feedback saved locally.")
+}
+function advanceFeedback(id){
+ const f=state.feedback.find(x=>x.id===id);if(!f)return;
+ f.status=f.status==="New"?"In Review":f.status==="In Review"?"Resolved":"New";
+ save();render()
+}
+function setSetting(k,v){state.settings[k]=v;save()}
+function exportCSV(){
+ const rows=[["ID","Patient","Department","Wait Minutes","Status","Update Marked Sent"],...state.patients.map(p=>[p.id,p.name,p.dept,p.wait,p.status,p.updated?"Yes":"No"])];
+ const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+ const a=document.createElement("a");a.href=url;a.download="patient-queue-demo.csv";a.click();URL.revokeObjectURL(url)
+}
+function resetDemo(){
+ if(!confirm("Reset all demo data?"))return;
+ state=JSON.parse(JSON.stringify(initial));save();render()
+}
+setInterval(()=>{
+ $("clock").textContent=new Date().toLocaleString();
+ if(state.settings.timer){
+  state.patients.forEach(p=>{if(!p.updated){p.wait++;if(p.wait>=25)p.status="Delayed";else if(p.wait>=15)p.status="Waiting"}});
+  save();if(current==="Live Operations"||current==="Performance Metrics")render()
+ }
+},60000);
+$("clock").textContent=new Date().toLocaleString();
+render();
+</script>
+</body>
+</html>
